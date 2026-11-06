@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { Link, NavLink, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { lessons } from '../content/journey.js';
 import { useWorkspace } from '../features/progress/WorkspaceProvider.jsx';
+import { ThemeSwitcher } from '../features/theme/ThemeProvider.jsx';
 
 const LabPage = lazy(() => import('../features/lab/LabPage.jsx'));
 const QuestionsPage = lazy(() => import('../features/questions/QuestionsPage.jsx'));
@@ -45,7 +46,8 @@ function Layout({ children }) {
     <header className="site-header wrap">
       <Link className="brand" to="/" aria-label="GigLink Prep home"><span className="brand-mark" aria-hidden="true">&lt;/&gt;</span><span>GigLink <strong>Prep</strong></span></Link>
       <nav aria-label="Main navigation"><NavLink to="/" end>Overview</NavLink><NavLink to="/chapters/1">Chapter 01</NavLink><NavLink to="/questions">CTO practice</NavLink></nav>
-      <span className="phase-tag">P2 <span>· Full story</span></span>
+      <ThemeSwitcher />
+      <span className="phase-tag">P2.1 <span>· Guided learning</span></span>
     </header>
     <main id="main" className="wrap" tabIndex={-1}>{children}</main>
     <footer className="site-footer wrap"><span>One project. One piece at a time.</span><ApiStatus /><span>Built for understanding.</span></footer>

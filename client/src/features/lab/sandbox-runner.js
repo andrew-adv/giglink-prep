@@ -6,6 +6,10 @@ import { applyForGig } from './apply.js';
 import { reviewApplication, myApplications } from './review.js';
 import { checkIds, runChecks, runFullJourney, runScene } from './checks.js';
 import config from './run-config.json';
+import { palettes, receivePreviewTheme } from './theme.js';
+
+if (document.documentElement) document.documentElement.dataset.theme = palettes[config.theme] ? config.theme : 'dark';
+window.addEventListener('message', event => receivePreviewTheme(event, window.parent, config.parentOrigin, document.documentElement));
 
 const api = { createGig, validateGig, publishGig, browseGigs, applyForGig, reviewApplication, myApplications };
 const root = document.getElementById('app');

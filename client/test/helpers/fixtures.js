@@ -23,15 +23,19 @@ export async function renderRunner(files, config) {
   }
   const root = new Element('main');
   let posted;
-  const context = vm.createContext({ document: { createElement: tag => new Element(tag), getElementById: () => root }, window: { parent: { postMessage: (message, origin) => { posted = { message, origin }; } } } });
+  const documentRoot = { dataset: {} };
+  let themeListener;
+  const parent = { postMessage: (message, origin) => { posted = { message, origin }; } };
+  const context = vm.createContext({ document: { documentElement: documentRoot, createElement: tag => new Element(tag), getElementById: () => root }, window: { parent, addEventListener: (_type, listener) => { themeListener = listener; } } });
   const authored = { ...files, '/project.js': `export const baseDetails = ${JSON.stringify(baseDetails)}; export const lessonIds = ${JSON.stringify(lessonIds)};` };
   for (const name of ['sandbox-runner', 'checks', 'story-checks', 'story-scene', 'story-project']) {
     authored[name === 'sandbox-runner' ? '/index.js' : `/${name}.js`] = await readFile(new URL(`../../src/features/lab/${name}.js`, import.meta.url), 'utf8');
   }
+  authored['/theme.js'] = await readFile(new URL('../../src/features/theme/theme.js', import.meta.url), 'utf8');
   const modules = Object.fromEntries(Object.entries(authored).map(([path, code]) => [path, new vm.SourceTextModule(code, { context, identifier: path })]));
   modules['/run-config.json'] = new vm.SyntheticModule(['default'], function () { this.setExport('default', config); }, { context });
   await modules['/index.js'].link(specifier => modules[`/${specifier.replace('./', '')}`]);
   await modules['/index.js'].evaluate({ timeout: 1000 });
   const text = node => [node.textContent, ...node.children.map(text)].join(' ');
-  return { rendered: text(root), posted };
+  return { rendered: text(root), posted, documentRoot, changeTheme: theme => themeListener({ source: parent, origin: config.parentOrigin, data: { kind: 'giglink-prep:theme', theme } }) };
 }
