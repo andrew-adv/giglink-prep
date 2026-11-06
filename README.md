@@ -2,7 +2,9 @@
 
 Learn how GigLink works by building one small JavaScript project, one piece at a time. This is a separate educational app. The original `andrew-adv/giglink` repository is read-only reference material.
 
-## Current phase: P3
+## Current phase: P4 — deployment readiness
+
+No deployment has been performed. Use [SETUP_AND_DEPLOYMENT.md](SETUP_AND_DEPLOYMENT.md) for the exact user-managed dashboard settings and [P4_VERIFICATION.md](P4_VERIFICATION.md) for release evidence and phone/laptop QA. Actual hosting URLs and private secrets must be configured before release.
 
 The existing overview and chapter shell lead into six connected JavaScript lessons. The same Sandpack workspace keeps `gig.js`, `validate.js`, and `publish.js`, then adds `browse.js`, `apply.js`, and `review.js`. The learner's actual functions create the event, validate/publish it, build the talent board, match fictional demos, and review an application. Code, completion, current lesson, and attempts save locally. Editing a file clears its completion and the completion of later lessons that depend on it.
 
@@ -16,7 +18,7 @@ Progress now saves locally first and can synchronize to MongoDB through Express.
 
 ## Run locally
 
-Use Node.js **22.12 or newer** (Node 22.21 was used for P0 verification) and npm. Run all commands from this repository's root unless noted.
+Use Node.js **22.x, at least 22.12** (local checks use 22.21) and npm. The client declares `>=22.12.0 <23` to keep Vercel on the tested major version. Run all commands from this repository's root unless noted.
 
 ```sh
 npm ci
@@ -66,13 +68,15 @@ if (!(Test-Path -LiteralPath server/.env)) { Copy-Item server/.env.example serve
 
 | Variable | Location | Default / purpose |
 | --- | --- | --- |
-| `VITE_API_BASE_URL` | `client/.env.local` | `http://localhost:5000/api`; public browser API URL |
+| `VITE_API_BASE_URL` | `client/.env.local` / Vercel | Development defaults to `http://localhost:5000/api`; production requires the actual HTTPS Render address ending in `/api` |
 | `PORT` | `server/.env` | `5000`; API binds to `0.0.0.0` |
-| `CLIENT_ORIGIN` | `server/.env` | `http://localhost:5173`; exact browser origin allowed by CORS |
+| `CLIENT_ORIGIN` | `server/.env` / Render | Development can use `http://localhost:5173`; production requires the exact HTTPS frontend origin without a path/trailing slash |
 | `NODE_ENV` | `server/.env` | Example uses `development`; hosting can set `production` |
 | `MONGODB_URI` | **Only** `server/.env` | Empty means local saving only; your private Atlas driver connection string |
 
-Restart the affected process after changing environment files. For `npm run preview`, set `CLIENT_ORIGIN=http://localhost:4173` and restart the API to allow the preview footer's health request. Use `localhost` consistently in the browser; a `127.0.0.1` origin is different for CORS. Never put secrets in `VITE_` variables. `.env` files are ignored; only the examples belong in Git.
+Restart the affected process after changing environment files; rebuild the frontend after changing its production URL. Development CORS permits the configured origin plus localhost/127.0.0.1 on ports 5173 and 4173. Production CORS permits only the configured exact origin, with no wildcard or arbitrary preview-domain matching. Never put secrets in `VITE_` variables. `.env` files are ignored; only examples belong in Git.
+
+A production build now fails clearly if its API URL is missing, insecure, includes credentials/query/fragment, targets localhost, or lacks `/api`. It never silently falls back to a developer's computer. Local `npm run dev` still works without hosting configuration.
 
 ### Configure MongoDB locally
 
@@ -128,12 +132,13 @@ P2 reads `giglink-prep.workspace.v1` when no v2 save exists. It preserves the th
 
 Lessons 1–3 keep their original starter code and checks. P2 supplies additional `id`, `customerId`, and single `position` fields **before** calling your `createGig`. If your P1 implementation copied individual fields, extend it to retain the added fields too. The lesson 1 contract already explains `...details`; your code is preserved, not silently replaced.
 
-## Verify P3
+## Verify P4
 
-```sh
+```powershell
 npm test
+$env:VITE_API_BASE_URL = 'https://YOUR-ACTUAL-RENDER-HOST/api'
 npm run build
-npm start
+npm run start --workspace=server
 ```
 
 In another terminal:
@@ -146,7 +151,7 @@ Frontend tests execute only repository-authored starter, solution, and deliberat
 
 See [P2_1_VERIFICATION.md](P2_1_VERIFICATION.md) for guided/theme coverage and manual phone/browser checks. [P2_VERIFICATION.md](P2_VERIFICATION.md) and [P1_VERIFICATION.md](P1_VERIFICATION.md) remain historical reports. The new DOM interaction tests use jsdom and Vite's JSX loader; they launch no browser or preview server. Browser access was denied earlier in this session; no bypass was attempted. Native dialog focus trapping, visual layout, actual Sandpack loading, live OS appearance changes, and persistence across a real browser refresh remain **manually unverified**. The build retains its advisory warning for the deferred Sandpack chunk exceeding 500 kB before gzip.
 
-See [P3_VERIFICATION.md](P3_VERIFICATION.md) for synchronization tests, the real MongoDB result, and the restart/Atlas/manual browser checklist. `npm test` needs no database and never reads `server/.env`; `test:mongo` explicitly loads it.
+See [P3_VERIFICATION.md](P3_VERIFICATION.md) for synchronization tests and [P2_1_1_VERIFICATION.md](P2_1_1_VERIFICATION.md) for the preserved Sandpack Babel 7 fix. [P4_VERIFICATION.md](P4_VERIFICATION.md) records current release checks and the manual end-to-end checklist. `npm test` needs no database and never reads `server/.env`; `npm run test:mongo --workspace=server` explicitly loads it for a temporary-record integration check.
 
 ## Repository layout
 
@@ -176,10 +181,20 @@ shared/
 
 The root npm workspace shares a single `package-lock.json`. Install with `npm ci` at the repository root. Both packages also expose their own build/start scripts for hosting.
 
-## Deployment groundwork only
+## Deployment settings — user-managed release only
 
-P3 adds no deployment infrastructure. `client/vercel.json` retains the P0 SPA rewrite needed for a direct chapter, lesson, replay, or question URL. The whole repository, including `shared/`, must remain available to both workspaces. Hosting configuration and release QA belong to P4.
+Both applications import root `shared/progress.mjs`. Keep the entire repository and root workspace lockfile available:
 
-Because the lockfile lives at the workspace root, an install from a subdirectory must retain the root workspace/lockfile context (for example, `cd .. && npm ci` as the Render build command). Do not use `npm ci` on an isolated copy of `server/` without a lockfile.
+| Setting | Render backend | Vercel frontend |
+| --- | --- | --- |
+| Root Directory | **Blank: repository root** | **`client`** |
+| Framework/runtime | Node; `NODE_VERSION=22` | Vite; Node 22.x |
+| Install / build | **`npm ci`** | Install `npm ci`; build **`npm run build`** |
+| Start / output | **`npm run start --workspace=server`** | **`dist`** |
+| Outside-root source | Whole repository already retained | **Enable Include source files outside of the Root Directory** |
+| Health / routes | **`/api/health`** | Retain `client/vercel.json` SPA rewrite |
+| Environment | `MONGODB_URI`, exact `CLIENT_ORIGIN`, `NODE_ENV=production`, `NODE_VERSION=22`; Render supplies `PORT` | Public `VITE_API_BASE_URL` = actual HTTPS API URL ending in `/api` |
 
-Follow [SETUP_AND_DEPLOYMENT.md](SETUP_AND_DEPLOYMENT.md) when the later phase is authorized. The next phase is **P4 — Not started.**
+Do **not** set Render's root to `server`; it would exclude the shared module. In Atlas allow every outbound CIDR from that Render service's **Connect → Outbound** list, plus your own IP only when doing local checks. Use a separate `giglink_prep` database/user. See [the full dashboard instructions](SETUP_AND_DEPLOYMENT.md) and official [Render monorepo](https://render.com/docs/monorepo-support) / [Vercel outside-root source](https://vercel.com/docs/monorepos/monorepo-faq) guidance.
+
+P4 stops at readiness. The user supplies real addresses/secrets, initiates deployment, and completes hosted browser/phone QA. No hosting resource, infrastructure automation or deployment was added.

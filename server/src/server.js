@@ -3,8 +3,9 @@ import { createDatabase } from './db.js';
 
 const port = Number(process.env.PORT || 5000);
 const database = createDatabase();
+const app = createApp({ database });
 database.start();
-const server = createApp({ database }).listen(port, '0.0.0.0', () => {
+const server = app.listen(port, '0.0.0.0', () => {
   console.log(`GigLink Prep API listening on http://localhost:${port}`);
 });
 

@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { changeFiles, readWorkspace, recordChecks, saveWorkspace } from './workspace.js';
 import { createProgressSync } from './sync.js';
+import { getApiBaseUrl } from '../../config/api-url.js';
 
 const WorkspaceContext = createContext(null);
 function storage() { try { return window.localStorage; } catch { return null; } }
@@ -35,7 +36,7 @@ export function WorkspaceProvider({ children, syncOptions = {} }) {
         return true;
       },
       onState: setSyncState,
-      baseUrl: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api',
+      baseUrl: getApiBaseUrl(),
       ...initialOptions.current,
     });
     synchronizer.current = sync;

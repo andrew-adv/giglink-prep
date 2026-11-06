@@ -3,11 +3,13 @@ import cors from 'cors';
 import { createHash } from 'node:crypto';
 import { bodyLimit, tokenPattern, validWrite } from '../../shared/progress.mjs';
 import { createProgressStore } from './progress-store.js';
+import { clientOrigins } from './origins.js';
 
-export function createApp({ clientOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5173', database = { state: () => 'not-configured' }, store = createProgressStore() } = {}) {
+export function createApp({ clientOrigin = process.env.CLIENT_ORIGIN, nodeEnv = process.env.NODE_ENV || 'development', database = { state: () => 'not-configured' }, store = createProgressStore() } = {}) {
   const app = express();
+  const origins = clientOrigins({ clientOrigin, nodeEnv });
   app.disable('x-powered-by');
-  app.use(cors({ origin: clientOrigin, methods: ['GET', 'PUT'], allowedHeaders: ['Authorization', 'Content-Type'] }));
+  app.use(cors({ origin: (origin, callback) => callback(null, origins.has(origin)), methods: ['GET', 'PUT'], allowedHeaders: ['Authorization', 'Content-Type'] }));
 
   app.get('/api/health', (_request, response) => {
     response.set('Cache-Control', 'no-store').json({ status: 'ok', service: 'giglink-prep-api', phase: 'P3', database: database.state() });

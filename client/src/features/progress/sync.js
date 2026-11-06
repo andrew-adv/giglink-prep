@@ -1,5 +1,6 @@
 import { bodyLimit, tokenPattern, validProgress, validWorkspace, workspaceText } from '../../../../shared/progress.mjs';
 import { freshWorkspace, legacyStorageKey, readWorkspace, storageKey } from './workspace.js';
+import { getApiBaseUrl } from '../../config/api-url.js';
 
 export const learnerKey = 'giglink-prep.learner.v1';
 export const syncKey = 'giglink-prep.sync.v1';
@@ -18,7 +19,7 @@ export function learnerCredential(storage, crypto) {
 }
 
 // Owns network scheduling only. The existing provider still saves every local edit.
-export function createProgressSync({ storage, crypto, getWorkspace, replaceWorkspace, onState, canAutoLoad = () => true, fetch: request = globalThis.fetch, baseUrl = 'http://localhost:5000/api', debounceMs = 900, retryMs = 30000, timeoutMs = 10000, schedule = setTimeout, cancel = clearTimeout }) {
+export function createProgressSync({ storage, crypto, getWorkspace, replaceWorkspace, onState, canAutoLoad = () => true, fetch: request = globalThis.fetch, baseUrl = getApiBaseUrl(), debounceMs = 900, retryMs = 30000, timeoutMs = 10000, schedule = setTimeout, cancel = clearTimeout }) {
   let token, base = null, revision = 0, hydrated = false, stopped = false, busy = false;
   let timer, controller, conflict = null, recovery = null, fault = false;
   const emit = (status, message) => { if (!stopped) onState({ status, message, conflict, recovery }); };

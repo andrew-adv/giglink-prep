@@ -4,6 +4,7 @@ import { lessons } from '../content/journey.js';
 import { useWorkspace } from '../features/progress/WorkspaceProvider.jsx';
 import { ThemeSwitcher } from '../features/theme/ThemeProvider.jsx';
 import SyncStatus from '../features/progress/SyncStatus.jsx';
+import { getApiBaseUrl } from '../config/api-url.js';
 
 const LabPage = lazy(() => import('../features/lab/LabPage.jsx'));
 const QuestionsPage = lazy(() => import('../features/questions/QuestionsPage.jsx'));
@@ -19,7 +20,7 @@ function ApiStatus() {
     let active = true;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
-    const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api').replace(/\/$/, '');
+    const baseUrl = getApiBaseUrl();
 
     fetch(`${baseUrl}/health`, { signal: controller.signal })
       .then(async (response) => {
