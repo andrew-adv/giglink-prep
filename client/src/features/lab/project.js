@@ -1,4 +1,7 @@
-export const editablePaths = ['/gig.js', '/validate.js', '/publish.js'];
+import { storySolutions, storyStarterFiles } from './story-project.js';
+
+export const editablePaths = ['/gig.js', '/validate.js', '/publish.js', '/browse.js', '/apply.js', '/review.js'];
+export const lessonIds = [1, 2, 3, 4, 5, 6];
 
 export const starterFiles = {
   '/gig.js': `export function createGig(details) {
@@ -29,6 +32,7 @@ export function publishGig(gig, payment) {
   return gig;
 }
 `,
+  ...storyStarterFiles,
 };
 
 // Teaching examples, also used as authored fixtures in the automated checks.
@@ -77,6 +81,7 @@ export function publishGig(gig, payment) {
   return { ...gig, publicationStatus: "published", postingPaymentStatus: "paid" };
 }
 `,
+  ...storySolutions,
 };
 
 export const baseDetails = {

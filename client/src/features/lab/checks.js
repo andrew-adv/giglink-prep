@@ -1,4 +1,6 @@
-import { baseDetails } from './project.js';
+import { baseDetails, lessonIds } from './project.js';
+import { runStoryChecks, storyCheckIds } from './story-checks.js';
+import { runStory } from './story-scene.js';
 
 const copy = (value) => JSON.parse(JSON.stringify(value));
 const same = (left, right) => {
@@ -15,13 +17,14 @@ function messages(value) {
 }
 
 export const checkIds = {
+  ...storyCheckIds,
   1: ['create-details', 'create-second-event', 'create-owned-status', 'create-no-mutation'],
   2: ['validate-valid', 'validate-free', 'validate-title', 'validate-location', 'validate-type', 'validate-min', 'validate-max', 'validate-no-mutation'],
   3: ['publish-browser-only', 'publish-verified', 'publish-strict-proof', 'publish-invalid', 'publish-state', 'publish-no-mutation'],
 };
 
 export function requiredCheckIds(through) {
-  return [1, 2, 3].filter((id) => id <= through).flatMap((id) => checkIds[id]);
+  return lessonIds.filter((id) => id <= through).flatMap((id) => checkIds[id]);
 }
 
 export function runChecks(api, through) {
@@ -113,11 +116,13 @@ export function runChecks(api, through) {
       expect(result !== gig && same(gig, before), 'Return a new published object; keep the original draft unchanged.');
     });
   }
+  runStoryChecks(api, through, check);
   return checks;
 }
 
 // Used by the sandbox scene: no reference solution decides its outcome.
 export function runScene(api, through, scenario) {
+  if (through >= 4) return runStory(api, through, scenario, opening => runScene(api, 3, opening));
   const steps = [];
   const gig = api.createGig(copy(scenario.details));
   expect(gig && typeof gig === 'object' && !Array.isArray(gig), 'createGig did not return an event object.');
@@ -135,4 +140,16 @@ export function runScene(api, through, scenario) {
     steps.push({ label: 'Publish', value: output.publicationStatus || 'status missing' });
   }
   return { gig: output, errors, steps };
+}
+
+export function runFullJourney(api, scenario) {
+  const checks = runChecks(api, 6);
+  const failed = checks.find(check => !check.passed);
+  let scene;
+  try { scene = runScene(api, 6, scenario); }
+  catch (error) { scene = { gig: {}, errors: [], steps: [], stages: [], board: [], afterBoard: [], mine: [], firstFailure: { stage: 1, message: error.message || 'An earlier file stopped the flow.' } }; }
+  const firstFailure = failed
+    ? { stage: lessonIds.find(id => checkIds[id].includes(failed.id)), message: failed.message }
+    : scene.firstFailure;
+  return { ...scene, checks, firstFailure, complete: !firstFailure && scene.stages?.length === 6 && scene.stages.every(stage => stage.passed) };
 }

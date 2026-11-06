@@ -1,31 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import vm from 'node:vm';
-import { readFile } from 'node:fs/promises';
+import { compile, renderRunner } from './helpers/fixtures.js';
 import { baseDetails, exampleSolutions, prepareScenario, starterFiles, scenarios } from '../src/features/lab/project.js';
 import { requiredCheckIds, runChecks, runScene } from '../src/features/lab/checks.js';
 
-// Only repository-authored fixtures run here. Learner code never reaches the API.
-async function compile(files) {
-  const context = vm.createContext({});
-  const modules = Object.fromEntries(Object.entries(files).map(([path, code]) => [path, new vm.SourceTextModule(code, { context, identifier: path })]));
-  for (const module of Object.values(modules)) {
-    if (module.status === 'unlinked') await module.link((specifier) => {
-      const dependency = modules[`/${specifier.replace('./', '')}`];
-      if (!dependency) throw new Error('Fixture import is outside the mini-project');
-      return dependency;
-    });
-  }
-  for (const module of Object.values(modules)) await module.evaluate({ timeout: 500 });
-  return {
-    createGig: modules['/gig.js'].namespace.createGig,
-    validateGig: modules['/validate.js'].namespace.validateGig,
-    publishGig: modules['/publish.js'].namespace.publishGig,
-  };
-}
 const allPass = (checks) => checks.length > 0 && checks.every((check) => check.passed);
 
-for (const through of [1, 2, 3]) {
+for (const through of [1, 2, 3, 4, 5, 6]) {
   test(`lesson ${through}: unfinished TODO fails; completed connected code passes`, async () => {
     const before = { ...exampleSolutions, [Object.keys(starterFiles)[through - 1]]: Object.values(starterFiles)[through - 1] };
     const failed = runChecks(await compile(before), through);
@@ -95,23 +76,9 @@ test('correct code responds to every interactive scenario, including rejection c
 });
 
 test('sandbox runner renders the executed output and posts real check results', async () => {
-  class Element {
-    constructor(tag) { this.tag = tag; this.children = []; this.textContent = ''; }
-    append(...children) { this.children.push(...children); }
-    replaceChildren(...children) { this.children = children; }
-  }
   for (const correct of [false, true]) {
-    const root = new Element('main');
-    let posted;
     const config = { runId: 'fixture-run', through: 3, scenario: scenarios[4], parentOrigin: 'http://localhost:5173' };
-    const context = vm.createContext({ document: { createElement: (tag) => new Element(tag), getElementById: () => root }, window: { parent: { postMessage: (message, origin) => { posted = { message, origin }; } } } });
-    const authored = { ...(correct ? exampleSolutions : starterFiles), '/index.js': await readFile(new URL('../src/features/lab/sandbox-runner.js', import.meta.url), 'utf8'), '/checks.js': await readFile(new URL('../src/features/lab/checks.js', import.meta.url), 'utf8'), '/project.js': `export const baseDetails = ${JSON.stringify(baseDetails)};` };
-    const modules = Object.fromEntries(Object.entries(authored).map(([path, code]) => [path, new vm.SourceTextModule(code, { context, identifier: path })]));
-    modules['/run-config.json'] = new vm.SyntheticModule(['default'], function () { this.setExport('default', config); }, { context });
-    await modules['/index.js'].link((specifier) => modules[`/${specifier.replace('./', '')}`]);
-    await modules['/index.js'].evaluate({ timeout: 1000 });
-    const text = (node) => [node.textContent, ...node.children.map(text)].join(' ');
-    const rendered = text(root);
+    const { rendered, posted } = await renderRunner(correct ? exampleSolutions : starterFiles, config);
     assert.match(rendered, correct ? /18\/18 behavioral checks passed/ : /FAIL/);
     if (correct) assert.match(rendered, /published.*An evening of live music/);
     assert.equal(allPass(posted.message.checks), correct);

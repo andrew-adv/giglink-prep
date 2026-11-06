@@ -51,6 +51,11 @@
 .lab-pane .muted, .lab-pane .payment-inputs { font-size: .7rem; }
 .replay { margin-top: 20px; }
 .replay .button { width: 100%; font-size: .8rem; }
+.journey-links { display: flex; flex-wrap: wrap; gap: 8px 24px; }
+.capacity-toggle { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: .8rem; margin-top: 14px; }
+.capacity-toggle input { width: 18px; height: 18px; }
+.story-controls { margin-block: 16px; padding: 14px; background: #f0f3e9; border-radius: 8px; }
+.story-controls > p { font-size: .75rem; margin-top: 0; }
 .lesson-card a:hover { text-decoration: underline; }
 @media (min-width: 960px) {
   .mobile-panels, .mobile-code-cta { display: none; }
