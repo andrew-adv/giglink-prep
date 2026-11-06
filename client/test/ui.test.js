@@ -14,8 +14,11 @@ import { sandboxCompiler } from './helpers/sandbox-compiler.js';
 import { freshWorkspace, legacyStorageKey, storageKey } from '../src/features/progress/workspace.js';
 import { themeStorageKey } from '../src/features/theme/theme.js';
 import { learnerKey, syncKey } from '../src/features/progress/sync.js';
+import { chapters } from '../src/content/presentation/story.js';
+import { milestones, refinements, requestSteps, workstreams } from '../src/content/presentation/evidence.js';
+import { presentationModes, speakerNotes } from '../src/content/presentation/practice.js';
 
-let dom, server, createRoot, ThemeProvider, ThemeSwitcher, WorkspaceProvider, useWorkspace, SyncStatus, LabPage, App;
+let dom, server, createRoot, ThemeProvider, ThemeSwitcher, WorkspaceProvider, useWorkspace, SyncStatus, LabPage, App, PresentationPage;
 let systemDark = false;
 const mediaListeners = new Set();
 before(async () => {
@@ -37,6 +40,7 @@ before(async () => {
   ({ default: SyncStatus } = await server.ssrLoadModule('/src/features/progress/SyncStatus.jsx'));
   ({ default: LabPage } = await server.ssrLoadModule('/src/features/lab/LabPage.jsx'));
   ({ default: App } = await server.ssrLoadModule('/src/app/App.jsx'));
+  ({ default: PresentationPage } = await server.ssrLoadModule('/src/features/presentation/PresentationPage.jsx'));
 });
 after(async () => { await server?.close(); dom?.window.close(); delete globalThis.window; delete globalThis.document; delete globalThis.HTMLElement; delete globalThis.IS_REACT_ACT_ENVIRONMENT; });
 
@@ -260,4 +264,207 @@ test('compiler-processed sandbox graph runs unfinished/4/12/18-check lessons, re
   assert.match(changed.rendered, /Compiler-tested changed event/);
   assert.ok(changed.posted.message.checks.some(check => !check.passed));
   assert.equal(window.localStorage.getItem(storageKey), saved);
+});
+
+test('public story and practice routes load with API unavailable; entry links exist on home, chapter and CTO pages', async () => {
+  for (const route of ['/', '/chapters/1', '/questions', '/presentation', '/presentation/practice']) {
+    window.localStorage.clear();
+    const { container, unmount } = await mount(providers(h(MemoryRouter, { initialEntries: [route] }, h(App))));
+    try {
+      await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
+      const links = [...container.querySelectorAll('a[href="/presentation"]')];
+      assert.ok(links.some(link => link.closest('nav[aria-label="Main navigation"]')), route);
+      assert.ok(links.some(link => !link.closest('nav')), route);
+      if (route.startsWith('/presentation')) {
+        assert.ok(container.querySelector('.presentation-page'));
+        assert.ok(container.textContent.includes('From the first idea to the working application.'));
+        assert.equal(container.querySelector('iframe'), null);
+        assert.ok(route.endsWith('practice') ? button(container, 'Start timer') : container.querySelector('[data-chapter="1"]'));
+      }
+    } finally { await unmount(); }
+  }
+});
+
+test('all ten story chapters navigate, reveal layered answers and restore a linked chapter without completion', async () => {
+  const { container, unmount } = await mount(h(MemoryRouter, { initialEntries: ['/presentation'] }, h(PresentationPage)));
+  try {
+    assert.equal(button(container, 'Previous chapter').disabled, true);
+    for (const chapter of chapters) {
+      assert.equal(container.querySelector('.story-chapter').dataset.chapter, String(chapter.id));
+      assert.equal(container.querySelector('.story-chapter > h2').textContent, chapter.title);
+      assert.equal(container.querySelector('.story-recap p:last-child').textContent, chapter.summary);
+      assert.equal(container.querySelector('.story-chapters [aria-current="step"]').getAttribute('href'), `/presentation?chapter=${chapter.id}`);
+      const answer = container.querySelector('.story-question > details');
+      assert.equal(answer.open, false);
+      await click(answer.querySelector('summary'));
+      assert.equal(answer.open, true);
+      assert.equal(answer.querySelector('p').textContent, chapter.answer);
+      await click(answer.querySelector('details').querySelector('summary'));
+      assert.ok(answer.querySelector('details').open);
+      if (chapter.id < 10) await click(button(container, 'Next chapter'));
+    }
+    assert.equal(button(container, 'Next chapter').disabled, true);
+    await click(button(container, 'Previous chapter'));
+    assert.equal(container.querySelector('.story-chapter').dataset.chapter, '9');
+    await choose(container.querySelector('.story-chapters select'), '1');
+    assert.equal(container.querySelector('.story-chapter').dataset.chapter, '2');
+  } finally { await unmount(); }
+  const restored = await mount(h(MemoryRouter, { initialEntries: ['/presentation?chapter=6'] }, h(PresentationPage)));
+  assert.equal(restored.container.querySelector('.story-chapter').dataset.chapter, '6');
+  await restored.unmount();
+  const invalid = await mount(h(MemoryRouter, { initialEntries: ['/presentation?chapter=400'] }, h(PresentationPage)));
+  assert.equal(invalid.container.querySelector('.story-chapter').dataset.chapter, '1');
+  await invalid.unmount();
+});
+
+test('workstream, request, timeline and comparison explorers synchronize selected evidence and details', async () => {
+  for (const [chapter, items, kind] of [[2, workstreams, 'team'], [4, requestSteps, 'architecture'], [5, milestones, 'timeline'], [8, refinements, 'refinements']]) {
+    const { container, unmount } = await mount(h(MemoryRouter, { initialEntries: [`/presentation?chapter=${chapter}`] }, h(PresentationPage)));
+    try {
+      const explorer = container.querySelector('.story-explorer');
+      assert.equal(button(explorer, 'Previous step').disabled, true);
+      for (let index = 0; index < items.length; index++) {
+        const detail = explorer.querySelector('.story-detail');
+        assert.equal(detail.dataset.explorerIndex, String(index));
+        assert.equal(detail.querySelector('h3').textContent, items[index].title);
+        assert.equal(explorer.querySelectorAll('[aria-pressed="true"]').length, 1);
+        if (kind === 'team') assert.ok(detail.textContent.includes(items[index].dependency));
+        if (kind === 'architecture') assert.equal(detail.querySelector('output').textContent, items[index].state);
+        if (kind === 'timeline') assert.ok(detail.querySelector(`a[href="${items[index].url}"]`));
+        if (kind === 'refinements') assert.deepEqual([...detail.querySelectorAll('dt')].map(node => node.textContent), ['Earlier state', 'Change', 'Reason', 'Result']);
+        if (index < items.length - 1) await click(button(explorer, 'Next step'));
+      }
+      assert.equal(button(explorer, 'Next step').disabled, true);
+      await click(button(explorer, 'Previous step'));
+      assert.equal(explorer.querySelector('.story-detail').dataset.explorerIndex, String(items.length - 2));
+      await choose(explorer.querySelector('select'), '0');
+      assert.equal(explorer.querySelector('.story-detail').dataset.explorerIndex, '0');
+      await click(explorer.querySelectorAll('.story-nodes button')[1]);
+      assert.equal(explorer.querySelector('.story-detail').dataset.explorerIndex, '1');
+    } finally { await unmount(); }
+  }
+});
+
+test('product rule choices change the authored example and the journey reaches subscription gating', async () => {
+  const rules = await mount(h(MemoryRouter, { initialEntries: ['/presentation?chapter=3'] }, h(PresentationPage)));
+  try {
+    assert.match(rules.container.querySelector('.story-rule-grid').textContent, /₦5,000/);
+    await click(button(rules.container, 'Paid gig'));
+    assert.match(rules.container.querySelector('.story-rule-grid').textContent, /₦10,000/);
+    await click(rules.container.querySelector('input[type="checkbox"]'));
+    assert.match(rules.container.querySelector('output').textContent, /needs an active/);
+    await click(button(rules.container, 'Free gig'));
+    assert.match(rules.container.querySelector('output').textContent, /remains available/);
+  } finally { await rules.unmount(); }
+  const journey = await mount(h(MemoryRouter, { initialEntries: ['/presentation?chapter=7'] }, h(PresentationPage)));
+  await choose(journey.container.querySelector('.story-explorer select'), '9');
+  assert.equal(journey.container.querySelector('.story-detail h3').textContent, 'Subscription gating');
+  assert.match(journey.container.querySelector('.story-detail').textContent, /Accepted commitment remains accessible/);
+  assert.equal(journey.container.querySelectorAll('.story-verification .story-card').length, 3);
+  await journey.unmount();
+});
+
+test('three practice modes navigate, reset and produce the selected copyable and printable notes', async () => {
+  const { container, unmount } = await mount(h(MemoryRouter, { initialEntries: ['/presentation/practice'] }, h(PresentationPage, { practiceMode: true })));
+  const previousPrint = window.print;
+  let prints = 0; window.print = () => prints++;
+  try {
+    for (const mode of presentationModes) {
+      await choose(container.querySelector('.story-mode-label select'), mode.id);
+      assert.equal(button(container, 'Previous section').disabled, true);
+      for (let i = 0; i < mode.sections.length; i++) {
+        const card = container.querySelector('.story-speaking-card');
+        assert.equal(card.dataset.speakingSection, String(mode.sections[i].id));
+        assert.equal(card.querySelector('.story-spoken').textContent, mode.sections[i].speech);
+        if (i < mode.sections.length - 1) await click(button(container, 'Next section'));
+      }
+      assert.equal(button(container, 'Next section').disabled, true);
+      await click(button(container, 'Previous section'));
+      assert.equal(container.querySelector('.story-speaking-card').dataset.speakingSection, String(mode.sections.at(-2).id));
+      await click(button(container, 'Restart rehearsal'));
+      assert.equal(container.querySelector('.story-speaking-card').dataset.speakingSection, String(mode.sections[0].id));
+      assert.equal(container.querySelector('textarea').value, speakerNotes(mode));
+      assert.equal(container.querySelector('.story-print-notes pre').textContent, speakerNotes(mode));
+      // jsdom has no system clipboard. Exercise the accessible manual-copy fallback.
+      await click(button(container, 'Copy speaker notes'));
+      const area = container.querySelector('textarea');
+      assert.equal(document.activeElement, area);
+      assert.equal(area.selectionEnd, area.value.length);
+      await click(button(container, 'Print speaker notes'));
+    }
+    assert.equal(prints, 3);
+    assert.ok(container.querySelector('a[href="/questions"]'));
+  } finally { window.print = previousPrint; await unmount(); }
+});
+
+test('rehearsal timer pauses, resumes and resets without advancing the speaking section', async () => {
+  const realNow = Date.now; let time = realNow(); Date.now = () => time;
+  const { container, unmount } = await mount(h(MemoryRouter, null, h(PresentationPage, { practiceMode: true })));
+  try {
+    const initial = container.querySelector('.story-speaking-card').dataset.speakingSection;
+    await click(button(container, 'Start timer'));
+    time += 65000;
+    await click(button(container, 'Pause timer'));
+    assert.equal(container.querySelector('output').textContent, '1:05');
+    assert.equal(container.querySelector('.story-speaking-card').dataset.speakingSection, initial);
+    time += 10000;
+    await click(button(container, 'Resume timer'));
+    time += 1000;
+    await click(button(container, 'Pause timer'));
+    assert.equal(container.querySelector('output').textContent, '1:06');
+    await click(button(container, 'Reset timer'));
+    assert.equal(container.querySelector('output').textContent, '0:00');
+    await click(button(container, 'Start timer'));
+    await choose(container.querySelector('.story-mode-label select'), 'quick');
+    assert.equal(container.querySelector('output').textContent, '0:00');
+    assert.ok(button(container, 'Start timer'));
+  } finally { Date.now = realNow; await unmount(); }
+});
+
+test('copy speaker notes uses only authored presentation text when clipboard is available', async () => {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis.navigator, 'clipboard');
+  let copied = '';
+  Object.defineProperty(globalThis.navigator, 'clipboard', { configurable: true, value: { writeText: async value => { copied = value; } } });
+  const { container, unmount } = await mount(h(MemoryRouter, null, h(PresentationPage, { practiceMode: true })));
+  try {
+    await click(button(container, 'Copy speaker notes'));
+    assert.equal(copied, speakerNotes(presentationModes[1]));
+    assert.match(container.textContent, /Speaker notes copied/);
+  } finally {
+    if (descriptor) Object.defineProperty(globalThis.navigator, 'clipboard', descriptor);
+    else delete globalThis.navigator.clipboard;
+    await unmount();
+  }
+});
+
+test('story and rehearsal interactions preserve learner bytes, completion, theme independence and issue no progress PUT', async () => {
+  window.localStorage.clear();
+  const workspace = { ...freshWorkspace(), codeFiles: { ...exampleSolutions, '/gig.js': exampleSolutions['/gig.js'] + '// private retained work' }, completed: [1, 2, 3, 4, 5, 6], attempts: { 1: 3 }, currentLesson: 6 };
+  const bytes = JSON.stringify(workspace); window.localStorage.setItem(storageKey, bytes);
+  const calls = [];
+  const syncOptions = { debounceMs: 1, fetch: async (_url, options) => {
+    calls.push(options.method);
+    return { status: 200, json: async () => ({ progress: { workspace, revision: 2, createdAt: '2026-11-01T00:00:00Z', updatedAt: '2026-11-06T00:00:00Z' } }) };
+  } };
+  const { container, unmount } = await mount(providers(h(MemoryRouter, { initialEntries: ['/presentation'] }, h(App)), syncOptions));
+  try {
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 15)); });
+    const baseline = calls.length;
+    const metadata = window.localStorage.getItem(syncKey);
+    for (const theme of ['light', 'dark', 'system']) {
+      await choose(container.querySelector('.theme-switcher select'), theme);
+      assert.ok(container.querySelector('.presentation-page'));
+    }
+    for (let index = 0; index < 9; index++) await click(button(container, 'Next chapter'));
+    await click(container.querySelector('a[href="/presentation/practice"]'));
+    await choose(container.querySelector('.story-mode-label select'), 'full');
+    await click(button(container, 'Next section'));
+    assert.ok(!container.querySelector('textarea').value.includes('private retained work'));
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 15)); });
+    assert.equal(window.localStorage.getItem(storageKey), bytes);
+    assert.equal(window.localStorage.getItem(syncKey), metadata);
+    assert.deepEqual(calls.slice(baseline), []);
+    assert.ok(!calls.includes('PUT'));
+    assert.equal(container.querySelector('iframe'), null);
+  } finally { await unmount(); }
 });

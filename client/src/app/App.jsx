@@ -8,6 +8,7 @@ import { getApiBaseUrl } from '../config/api-url.js';
 
 const LabPage = lazy(() => import('../features/lab/LabPage.jsx'));
 const QuestionsPage = lazy(() => import('../features/questions/QuestionsPage.jsx'));
+const PresentationPage = lazy(() => import('../features/presentation/PresentationPage.jsx'));
 
 function Arrow() {
   return <span aria-hidden="true">↗</span>;
@@ -47,7 +48,7 @@ function Layout({ children }) {
     <a className="skip-link" href="#main">Skip to content</a>
     <header className="site-header wrap">
       <Link className="brand" to="/" aria-label="GigLink Prep home"><span className="brand-mark" aria-hidden="true">&lt;/&gt;</span><span>GigLink <strong>Prep</strong></span></Link>
-      <nav aria-label="Main navigation"><NavLink to="/" end>Overview</NavLink><NavLink to="/chapters/1">Chapter 01</NavLink><NavLink to="/questions">CTO practice</NavLink></nav>
+      <nav aria-label="Main navigation"><NavLink to="/" end>Overview</NavLink><NavLink to="/chapters/1">Chapter 01</NavLink><NavLink to="/presentation">The GigLink Story</NavLink><NavLink to="/questions">CTO practice</NavLink></nav>
       <ThemeSwitcher />
       <span className="phase-tag">P3 <span>· Safe progress saving</span></span>
     </header>
@@ -73,6 +74,7 @@ function Home() {
       <div className="hero-copy"><p className="eyebrow"><span className="small-dot" />THE GIGLINK BUILD NOTEBOOK</p><h1 id="hero-title">Build it.<br />Understand it.<br /><em>Explain it.</em></h1><p className="hero-description">Learn how GigLink works by building a small version yourself. One connected JavaScript project, with plain-English explanations along the way.</p><Link className="button primary" to={`/lessons/${workspace.currentLesson}`}>{workspace.completed.length ? 'Continue your project' : 'Start building'} <Arrow /></Link><p className="availability">6 connected lessons · JavaScript · Your P1 work stays with you</p></div>
       <ProjectPreview />
     </section>
+    <section className="story-entry section-space" aria-labelledby="story-entry-title"><p className="eyebrow">THE ORIGINAL PROJECT / PRESENTATION PREPARATION</p><h2 id="story-entry-title">The GigLink Story</h2><p>From the first idea to the working application. Explore the documented team roles, architecture, development history and product decisions, then rehearse a 1, 3–5 or 8–10 minute explanation.</p><Link className="button primary" to="/presentation">Explore the project story →</Link></section>
     <section className="journey section-space" aria-labelledby="journey-title">
       <div className="section-heading"><div><p className="eyebrow">ONE CONNECTED CHAPTER</p><h2 id="journey-title">From an idea to an accepted performer.</h2></div><span className="outline-tag">{workspace.completed.length}/6 lessons checked</span></div>
       <p className="section-intro">Keep the same project as you go. Each lesson will add a small piece that the next one needs.</p>
@@ -95,6 +97,7 @@ function Chapter() {
     <h1>Every gig starts<br />as a <em>draft.</em></h1>
     <p className="chapter-lead">Think of a draft as an event flyer still on your desk. You can check the details before anyone else sees it.</p>
     <div className="chapter-notice"><strong>One connected project.</strong> Write real JavaScript, try good and bad inputs, then see what your code does. Payments are simulated.</div>
+    <section className="story-entry" aria-label="Original project presentation"><h2>See the project behind these lessons.</h2><p>The GigLink Story follows the original application’s team workstreams, architecture and recorded changes. Read it before the lessons or use it to prepare your presentation.</p><Link className="text-link" to="/presentation">Open The GigLink Story →</Link></section>
     <div className="chapter-content"><section aria-labelledby="chapter-lessons"><h2 id="chapter-lessons">What you’ll build</h2>
       <ol className="chapter-lessons">{lessons.map((lesson) => <li key={lesson.id}><span className="lesson-number">{workspace.completed.includes(lesson.id) ? '✓' : `0${lesson.id}`}</span><div><h3>{lesson.title}</h3><p>{lesson.detail}</p><span className="file-tag">{lesson.file}</span><br /><Link className="chapter-lesson-link" to={`/lessons/${lesson.id}`}>Open lesson {lesson.id} →</Link></div></li>)}</ol>
     </section><aside className="lesson-plan"><p className="eyebrow">THE LESSON LOOP</p><h2>Small steps.<br />Visible results.</h2><p>See an everyday example. Try a change. Write real code. Run it and see what happens.</p><p>Then connect it to GigLink’s source and practice explaining why it works.</p><Link className="button primary" to={`/lessons/${workspace.currentLesson}`}>Open your workspace →</Link><p className="muted" role="status">{saveStatus}</p><div className="chapter-progress"><progress value={workspace.completed.length} max="6" aria-label="Completed lessons" /><span>{workspace.completed.length}/6 checked</span></div><Link className="text-link" to="/replay">Replay full journey →</Link><Link className="text-link" to="/questions">Practice presentation questions →</Link></aside></div>
@@ -106,5 +109,5 @@ function NotFound() {
 }
 
 export default function App() {
-  return <Layout><Suspense fallback={<p role="status">Opening your workspace…</p>}><Routes><Route path="/" element={<Home />} /><Route path="/chapters/:chapterId" element={<Chapter />} /><Route path="/lessons/:lessonId" element={<LabPage />} /><Route path="/replay" element={<LabPage replayMode />} /><Route path="/questions" element={<QuestionsPage />} /><Route path="*" element={<NotFound />} /></Routes></Suspense></Layout>;
+  return <Layout><Suspense fallback={<p role="status">Opening page…</p>}><Routes><Route path="/" element={<Home />} /><Route path="/chapters/:chapterId" element={<Chapter />} /><Route path="/lessons/:lessonId" element={<LabPage />} /><Route path="/replay" element={<LabPage replayMode />} /><Route path="/questions" element={<QuestionsPage />} /><Route path="/presentation" element={<PresentationPage />} /><Route path="/presentation/practice" element={<PresentationPage practiceMode />} /><Route path="*" element={<NotFound />} /></Routes></Suspense></Layout>;
 }

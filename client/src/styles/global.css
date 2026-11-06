@@ -31,11 +31,14 @@ em { font-family: Georgia, serif; font-weight: 400; }
 .brand { display: inline-flex; align-items: center; gap: 10px; font-size: 1.15rem; font-weight: 650; letter-spacing: -.04em; }
 .brand strong { font-weight: 400; }
 .brand-mark { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; background: var(--green); color: var(--onAccent); font-family: monospace; font-weight: 700; font-size: 1rem; }
-nav { display: flex; gap: 24px; order: 3; width: 100%; font-size: .85rem; }
-nav a { color: var(--muted); padding-block: 3px; }
+nav { display: flex; flex-wrap: wrap; gap: 10px 24px; order: 3; width: 100%; font-size: .85rem; }
+nav a { color: var(--muted); padding-block: 3px; min-height: 44px; display: inline-flex; align-items: center; }
 nav a.active { color: var(--green); box-shadow: 0 2px var(--green); }
 .phase-tag { margin-left: auto; border: 1px solid var(--line); border-radius: 7px; padding: 5px 9px; font: 600 .68rem "Segoe UI", sans-serif; letter-spacing: .04em; }
 .phase-tag span { font-weight: 400; }
+.story-entry { padding: 28px; margin-block: 24px; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; overflow-wrap: anywhere; }
+.story-entry p { max-width: 72ch; color: var(--muted); margin-block: 16px; }
+.story-entry .eyebrow { color: var(--accent); }
 .hero { display: grid; gap: 44px; padding-block: 46px 38px; align-items: center; }
 .eyebrow { font-size: .67rem; font-weight: 650; letter-spacing: .14em; line-height: 1.5; }
 .small-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }

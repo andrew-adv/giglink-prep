@@ -153,6 +153,14 @@ See [P2_1_VERIFICATION.md](P2_1_VERIFICATION.md) for guided/theme coverage and m
 
 See [P3_VERIFICATION.md](P3_VERIFICATION.md) for synchronization tests and [P2_1_1_VERIFICATION.md](P2_1_1_VERIFICATION.md) for the preserved Sandpack Babel 7 fix. [P4_VERIFICATION.md](P4_VERIFICATION.md) records current release checks and the manual end-to-end checklist. `npm test` needs no database and never reads `server/.env`; `npm run test:mongo --workspace=server` explicitly loads it for a temporary-record integration check.
 
+## The GigLink Story — P5
+
+Open **`/presentation`** for ten public chapters about the original GigLink product, documented workstreams, architecture, recorded timeline, integration, achievements and limits. No lesson completion or API/database connection is required. **`/presentation/practice`** provides 1-minute, 3–5-minute and 8–10-minute speaking prompts, a manual rehearsal timer, copyable notes and printing. The existing twelve CTO questions remain at `/questions`.
+
+Content lives in `client/src/content/presentation/`: `story.js` (chapters), `evidence.js` (pinned sources, snapshot and diagrams), `practice.js` (speaking outlines) and **`personal-details.js`** (the single place for unconfirmed personal details). Fill those entries only with confirmed information, update their status/source, and review the related prose/tests before adding personal credits. Task assignments do not establish actual authorship. C00 instructor provision is explicitly user-reported.
+
+The original repository was checked on 6 November 2026: `develop` at `9c98a93`, ahead of `main` (`6250520`) by 41 commits. File links use the full reviewed develop SHA. This is static evidence, not a live branch monitor. [P5_SOURCE_REVIEW.md](P5_SOURCE_REVIEW.md) records research and its limits; [P5_VERIFICATION.md](P5_VERIFICATION.md) provides checks and the phone/laptop manual QA procedure. The story describes the original application; Prep’s coding exercises remain a smaller simulation. P5 adds no external payment/upload service, backend endpoint, database field or new dependency.
+
 ## Repository layout
 
 ```text
@@ -162,6 +170,8 @@ client/
   src/features/lab/ Sandpack editor, sandbox runner, behavioral checks, scenes
   src/features/progress/ Local workspace, background sync, conflicts, save status
   src/features/questions/ Answer-reveal presentation practice
+  src/content/presentation/ Original project story, evidence and speaking outlines
+  src/features/presentation/ Public story explorers, rehearsal and print view
   src/features/guided/ Authored walkthrough data, navigation, and dialog
   src/features/theme/ Separate theme preference and shared palette tokens
   src/styles/       Mobile-first CSS

@@ -17,7 +17,7 @@ test('local development retains localhost fallback and explicit API configuratio
 
 test('retained SPA rewrite sends each release deep link to index.html', async () => {
   const config = JSON.parse(await readFile(new URL('../vercel.json', import.meta.url), 'utf8'));
-  for (const route of ['/lessons/1', '/lessons/6', '/replay', '/questions', '/chapters/1']) {
+  for (const route of ['/lessons/1', '/lessons/6', '/replay', '/questions', '/chapters/1', '/presentation', '/presentation/practice']) {
     const match = config.rewrites.find(rule => new RegExp(`^${rule.source}$`).test(route));
     assert.equal(match?.destination, '/index.html', route);
   }
