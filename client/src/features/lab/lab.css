@@ -1,0 +1,66 @@
+.lab-page { padding-block: 22px 50px; font-family: "Segoe UI", Arial, sans-serif; }
+.lab-heading { display: flex; flex-wrap: wrap; gap: 20px; align-items: end; justify-content: space-between; margin-block: 20px; }
+.lab-heading h1 { font-size: clamp(2.2rem, 5vw, 3.3rem); margin-top: 8px; }
+.save-state { max-width: 380px; font: .72rem/1.6 "Segoe UI", sans-serif; color: var(--muted); }
+.save-state span { font-size: .67rem; }
+.lesson-switcher { display: flex; gap: 10px; overflow-x: auto; width: 100%; margin-block: 20px; padding-block: 5px; }
+.lesson-switcher a { display: flex; align-items: center; gap: 9px; white-space: nowrap; min-height: 44px; border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; font-size: .74rem; }
+.lesson-switcher a[aria-current] { border-color: var(--green); background: #eaf0df; }
+.lesson-switcher span { font-family: Consolas, monospace; }
+.mobile-panels { display: flex; gap: 8px; position: sticky; top: 0; z-index: 2; padding-block: 12px; background: #f9faf5; }
+.mobile-panels button { flex: 1; min-height: 44px; padding: 8px; background: white; border: 1px solid var(--line); border-radius: 8px; color: var(--green); font-size: .8rem; }
+.mobile-panels button[aria-pressed="true"] { background: var(--green); color: white; }
+.lab-grid { display: grid; gap: 18px; align-items: start; }
+.lab-pane { min-width: 0; border: 1px solid var(--line); border-radius: 12px; background: #fffef9; padding: 20px; }
+.mobile-hidden { display: none; }
+.lab-pane h2 { font-size: 1.5rem; margin-block: 12px; }
+.lab-pane h3 { font-size: 1rem; margin-block: 24px 10px; }
+.lab-pane p { font-size: .85rem; color: var(--muted); margin-block: 12px; line-height: 1.75; }
+.lab-pane .eyebrow { font-size: .64rem; margin-top: 0; }
+.code-contract, .dependency-note { padding: 14px; background: #eaf0df; border-radius: 8px; font-size: .8rem; }
+.lab-pane summary { cursor: pointer; font-size: .8rem; font-weight: 600; padding-block: 12px; }
+.worked-example { margin-top: 14px; }
+.worked-example pre { padding: 14px; background: #f0f3e9; border-radius: 8px; font: .73rem/1.7 Consolas, monospace; }
+.source-connection, .defend { border-top: 1px solid var(--line); padding-top: 18px; margin-top: 24px; }
+.source-connection a { display: inline-block; font-size: .77rem; text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.defend h3 { margin-top: 10px; }
+.pane-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; }
+.pane-heading h2 { font-size: 1.15rem; margin-block: 0; }
+.pane-heading span { color: var(--muted); font-size: .65rem; }
+.code-pane { overflow: hidden; }
+.code-pane .sp-wrapper { min-width: 0; }
+.code-pane .sp-stack { border: 1px solid var(--line); border-radius: 8px; height: 420px; }
+.code-pane .sp-tabs { min-height: 44px; }
+.code-pane .sp-tab-button { padding-inline: 9px; font-size: 11px; }
+.code-pane .sp-code-editor { min-width: 0; }
+.code-pane .cm-editor { font-size: 12px; }
+.code-pane .cm-scroller { overflow: auto; }
+.editor-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.editor-actions .button { font-size: .75rem; padding: 12px; }
+.secondary { background: #f0f3e9; color: var(--green); border: 1px solid var(--line); }
+.scenario-label { display: grid; gap: 6px; margin-top: 16px; font-size: .73rem; color: var(--muted); }
+.scenario-label select, .scenario-label input { min-width: 0; width: 100%; min-height: 44px; border: 1px solid #b9c8b3; background: white; border-radius: 7px; padding: 9px; font: .8rem "Segoe UI", sans-serif; color: #173d35; }
+.scenario-label input:focus-visible, .scenario-label select:focus-visible { outline: 3px solid #b36528; outline-offset: 2px; }
+.result-run { margin-block: 16px 0; width: 100%; }
+.lab-pane .run-feedback { padding: 12px; border-left: 3px solid #a5bd77; background: #f0f3e9; font-size: .77rem; overflow-wrap: anywhere; }
+.lab-pane .run-feedback.fail, .lab-pane .run-feedback.error { border-color: #a74438; background: #fff0e9; color: #803328; }
+.lab-pane .run-feedback.pass { border-color: #43774c; color: #225d43; }
+.sandbox-frame { position: relative; min-width: 0; height: 580px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #f9faf5; }
+.sandbox-frame iframe { border: 0; width: 100%; height: 100%; display: block; }
+.sandbox-placeholder { position: absolute; inset: 0; display: grid; place-content: center; padding: 20px; text-align: center; color: var(--muted); font: .85rem/1.8 "Segoe UI", sans-serif; pointer-events: none; }
+.lab-pane .muted, .lab-pane .payment-inputs { font-size: .7rem; }
+.replay { margin-top: 20px; }
+.replay .button { width: 100%; font-size: .8rem; }
+.lesson-card a:hover { text-decoration: underline; }
+@media (min-width: 960px) {
+  .mobile-panels, .mobile-code-cta { display: none; }
+  .lab-grid { grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); }
+  .lab-pane.mobile-hidden { display: block; }
+  .lesson-copy { grid-row: span 2; }
+  .lab-heading .save-state { text-align: right; }
+}
+@media (min-width: 1280px) {
+  .lab-grid { grid-template-columns: minmax(0, .9fr) minmax(0, 1.12fr) minmax(0, 1fr); }
+  .lesson-copy { grid-row: auto; }
+  .lab-pane { padding: 18px; }
+}
