@@ -10,8 +10,9 @@ import { walkthroughs } from '../src/features/guided/walkthroughs.js';
 import { exampleSolutions } from '../src/features/lab/project.js';
 import { freshWorkspace, legacyStorageKey, storageKey } from '../src/features/progress/workspace.js';
 import { themeStorageKey } from '../src/features/theme/theme.js';
+import { learnerKey, syncKey } from '../src/features/progress/sync.js';
 
-let dom, server, createRoot, ThemeProvider, ThemeSwitcher, WorkspaceProvider, LabPage, App;
+let dom, server, createRoot, ThemeProvider, ThemeSwitcher, WorkspaceProvider, useWorkspace, SyncStatus, LabPage, App;
 let systemDark = false;
 const mediaListeners = new Set();
 before(async () => {
@@ -20,6 +21,7 @@ before(async () => {
   globalThis.document = dom.window.document;
   globalThis.HTMLElement = dom.window.HTMLElement;
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  globalThis.fetch = async () => ({ status: 503, ok: false, json: async () => ({ error: 'Storage unavailable' }) });
   window.scrollTo = () => {};
   window.matchMedia = () => ({ get matches() { return systemDark; }, addEventListener: (_type, fn) => mediaListeners.add(fn), removeEventListener: (_type, fn) => mediaListeners.delete(fn) });
   // jsdom is not a browser: model open/close only; native focus trapping remains manual QA.
@@ -28,7 +30,8 @@ before(async () => {
   ({ createRoot } = await import('react-dom/client'));
   server = await createServer({ root: fileURLToPath(new URL('..', import.meta.url)), configFile: false, plugins: [react()], optimizeDeps: { noDiscovery: true, include: [] }, server: { middlewareMode: true, hmr: false, watch: { ignored: ['**/*'] } }, appType: 'custom' });
   ({ ThemeProvider, ThemeSwitcher } = await server.ssrLoadModule('/src/features/theme/ThemeProvider.jsx'));
-  ({ WorkspaceProvider } = await server.ssrLoadModule('/src/features/progress/WorkspaceProvider.jsx'));
+  ({ WorkspaceProvider, useWorkspace } = await server.ssrLoadModule('/src/features/progress/WorkspaceProvider.jsx'));
+  ({ default: SyncStatus } = await server.ssrLoadModule('/src/features/progress/SyncStatus.jsx'));
   ({ default: LabPage } = await server.ssrLoadModule('/src/features/lab/LabPage.jsx'));
   ({ default: App } = await server.ssrLoadModule('/src/app/App.jsx'));
 });
@@ -43,7 +46,7 @@ async function mount(element) {
 const button = (container, text) => [...container.querySelectorAll('button')].find(item => item.textContent.includes(text));
 async function click(element) { assert.ok(element); await act(async () => element.click()); }
 async function choose(select, value) { await act(async () => { select.value = value; select.dispatchEvent(new window.Event('change', { bubbles: true })); }); }
-function providers(child) { return h(ThemeProvider, null, h(WorkspaceProvider, null, child)); }
+function providers(child, syncOptions) { return h(ThemeProvider, null, h(WorkspaceProvider, { syncOptions }, child)); }
 
 test('all six lesson routes open/navigate/replay/close guides without loading Sandpack or writing P1/P2 progress', async () => {
   for (const version of [1, 2]) for (const guide of walkthroughs) {
@@ -82,7 +85,8 @@ test('all six lesson routes open/navigate/replay/close guides without loading Sa
     await act(async () => container.querySelector('dialog').dispatchEvent(new window.Event('cancel', { cancelable: true })));
     assert.equal(container.querySelector('dialog'), null);
     assert.equal(window.localStorage.getItem(key), bytes);
-    assert.equal(window.localStorage.length, 1);
+    assert.equal(window.localStorage.length, 2);
+    assert.match(window.localStorage.getItem(learnerKey), /^[a-f0-9]{64}$/);
     assert.equal(container.querySelector('iframe'), null);
     await unmount();
   }
@@ -136,4 +140,69 @@ test('replay entry and all 12 question cards still render with both themes', asy
       } finally { await unmount(); }
     }
   } finally { globalThis.fetch = previousFetch; }
+});
+
+test('theme switching and guided navigation cause no progress writes after reconciliation', async () => {
+  window.localStorage.clear();
+  const workspace = { ...freshWorkspace(), codeFiles: exampleSolutions, completed: [1, 2, 3, 4, 5, 6] };
+  const bytes = JSON.stringify(workspace); window.localStorage.setItem(storageKey, bytes);
+  const calls = [];
+  const syncOptions = { debounceMs: 1, fetch: async (_url, options) => {
+    calls.push(options.method);
+    return { status: 200, json: async () => ({ progress: { workspace, revision: 2, createdAt: '2026-11-01T00:00:00Z', updatedAt: '2026-11-06T00:00:00Z' } }) };
+  } };
+  const { container, unmount } = await mount(providers(h(MemoryRouter, { initialEntries: ['/lessons/1'] }, h(ThemeSwitcher), h(Routes, null, h(Route, { path: '/lessons/:lessonId', element: h(LabPage) }))), syncOptions));
+  try {
+    assert.deepEqual(calls, ['GET']);
+    await choose(container.querySelector('.theme-switcher select'), 'light');
+    await choose(container.querySelector('.theme-switcher select'), 'system');
+    await click(button(container, 'Show me how')); await click(button(container, 'Next')); await click(button(container, 'Replay')); await click(button(container, 'Close'));
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)); });
+    assert.deepEqual(calls, ['GET']); assert.equal(window.localStorage.getItem(storageKey), bytes);
+  } finally { await unmount(); }
+});
+
+test('real provider saves offline edits, syncs on reconnect, and exposes conflict choices with recovery', async () => {
+  window.localStorage.clear();
+  const base = freshWorkspace();
+  window.localStorage.setItem(storageKey, JSON.stringify(base));
+  const stamp = '2026-11-06T00:00:00Z';
+  let context, offline = true, remote = { workspace: base, revision: 1, createdAt: stamp, updatedAt: stamp }, writes = 0;
+  function Probe() { context = useWorkspace(); return h('div', null, h('p', { 'data-testid': 'code' }, context.workspace.codeFiles['/gig.js']), h(SyncStatus)); }
+  const syncOptions = { debounceMs: 1, retryMs: 60000, fetch: async (_url, options) => {
+    if (offline) throw new Error('offline');
+    if (options.method === 'PUT') {
+      writes++; const payload = JSON.parse(options.body);
+      if (payload.expectedRevision !== remote.revision) return { status: 409, json: async () => ({ progress: remote }) };
+      remote = { ...remote, workspace: payload.workspace, revision: remote.revision + 1 };
+    }
+    return { status: 200, json: async () => ({ progress: remote }) };
+  } };
+  const mounted = await mount(providers(h(Probe), syncOptions));
+  await act(async () => { context.updateFiles({ ...context.workspace.codeFiles, '/gig.js': '// offline code' }); });
+  assert.equal(readStored().codeFiles['/gig.js'], '// offline code');
+  const token = window.localStorage.getItem(learnerKey);
+  await mounted.unmount();
+  const second = await mount(providers(h(Probe), syncOptions));
+  try {
+    assert.equal(context.workspace.codeFiles['/gig.js'], '// offline code');
+    assert.equal(window.localStorage.getItem(learnerKey), token);
+    // With no prior baseline, two different copies require an explicit choice.
+    offline = false;
+    await act(async () => { window.dispatchEvent(new window.Event('online')); });
+    assert.equal(context.syncState.status, 'conflict'); assert.equal(writes, 0);
+    await click(button(second.container, 'Keep device version'));
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)); });
+    assert.equal(context.syncState.status, 'saved'); assert.equal(writes, 1); assert.equal(remote.workspace.codeFiles['/gig.js'], '// offline code');
+    remote = { ...remote, workspace: { ...base, codeFiles: { ...base.codeFiles, '/gig.js': '// other version' } }, revision: remote.revision + 1 };
+    await act(async () => { context.updateFiles({ ...context.workspace.codeFiles, '/gig.js': '// newest device code' }); });
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)); });
+    assert.equal(context.syncState.status, 'conflict');
+    const epoch = context.workspaceEpoch;
+    await click(button(second.container, 'Load server version'));
+    assert.equal(context.workspace.codeFiles['/gig.js'], '// other version'); assert.equal(context.workspaceEpoch, epoch + 1);
+    assert.equal(readStored().codeFiles['/gig.js'], '// other version');
+    assert.equal(JSON.parse(window.localStorage.getItem(syncKey)).recovery.local.codeFiles['/gig.js'], '// newest device code');
+  } finally { await second.unmount(); }
+  function readStored() { return JSON.parse(window.localStorage.getItem(storageKey)); }
 });

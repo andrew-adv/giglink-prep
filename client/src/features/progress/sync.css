@@ -1,0 +1,11 @@
+.progress-sync { margin-block: 0 1.5rem; padding: .85rem 1rem; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); color: var(--muted); font-size: .85rem; }
+.progress-sync > p { margin: 0; }
+.progress-sync details { margin-top: .5rem; }
+.progress-sync summary { cursor: pointer; min-height: 28px; }
+.progress-sync .button { min-height: 44px; white-space: normal; text-align: center; }
+.progress-sync > button { margin-block: .5rem; }
+.sync-conflict { margin-block: 1rem; color: var(--text); }
+.sync-conflict h2 { font-size: 1.15rem; }
+.sync-actions { display: flex; flex-wrap: wrap; gap: .6rem; }
+.progress-sync.conflict { border-color: var(--warning); }
+@media (max-width: 540px) { .sync-actions { display: grid; } }
