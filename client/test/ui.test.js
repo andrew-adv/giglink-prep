@@ -7,7 +7,10 @@ import react from '@vitejs/plugin-react';
 import { act, createElement as h } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { walkthroughs } from '../src/features/guided/walkthroughs.js';
-import { exampleSolutions } from '../src/features/lab/project.js';
+import { exampleSolutions, scenarios, starterFiles } from '../src/features/lab/project.js';
+import { storyOptions } from '../src/features/lab/story-project.js';
+import { renderRunner } from './helpers/fixtures.js';
+import { sandboxCompiler } from './helpers/sandbox-compiler.js';
 import { freshWorkspace, legacyStorageKey, storageKey } from '../src/features/progress/workspace.js';
 import { themeStorageKey } from '../src/features/theme/theme.js';
 import { learnerKey, syncKey } from '../src/features/progress/sync.js';
@@ -205,4 +208,56 @@ test('real provider saves offline edits, syncs on reconnect, and exposes conflic
     assert.equal(JSON.parse(window.localStorage.getItem(syncKey)).recovery.local.codeFiles['/gig.js'], '// newest device code');
   } finally { await second.unmount(); }
   function readStored() { return JSON.parse(window.localStorage.getItem(storageKey)); }
+});
+
+test('Sandpack selects Babel 7; its old compiler reproduces the reported /index.js error', async () => {
+  const { sandboxFiles } = await server.ssrLoadModule('/src/features/lab/sandbox-files.js');
+  const files = sandboxFiles(exampleSolutions);
+  const legacy = await sandboxCompiler({ dependencies: {} });
+  assert.equal(legacy.version, '6.26.0');
+  assert.throws(() => legacy.transform(files['/index.js'].code, '/index.js'), /\/index.js: Unexpected token \(38:19\)/);
+  assert.throws(() => legacy.transform('try {} catch {}', '/catch.js'), /Unexpected token/);
+  const compiler = await sandboxCompiler(JSON.parse(files['/package.json'].code));
+  assert.equal(compiler.version, '7.21.8');
+  // Parse/transform the entire shipped graph, including optional chaining,
+  // nullish coalescing, optional catch bindings, and all worked examples.
+  for (const codeFiles of [starterFiles, exampleSolutions]) {
+    for (const [path, file] of Object.entries(sandboxFiles(codeFiles))) {
+      if (path.endsWith('.js')) assert.ok(compiler.transform(file.code, path), path);
+    }
+  }
+});
+
+test('compiler-processed sandbox graph runs unfinished/4/12/18-check lessons, replay, changed output and dark preview', async () => {
+  const { sandboxFiles } = await server.ssrLoadModule('/src/features/lab/sandbox-files.js');
+  const workspace = { ...freshWorkspace(), codeFiles: exampleSolutions, completed: [1, 2, 3], currentLesson: 3 };
+  window.localStorage.clear(); window.localStorage.setItem(storageKey, JSON.stringify(workspace));
+  const saved = window.localStorage.getItem(storageKey);
+  async function run(codeFiles, through, fullJourney = false) {
+    const files = sandboxFiles(codeFiles, 'dark');
+    const compiler = await sandboxCompiler(JSON.parse(files['/package.json'].code));
+    const transformed = Object.fromEntries(Object.entries(files).filter(([path]) => path.endsWith('.js')).map(([path, file]) => [path, compiler.transform(file.code, path)]));
+    assert.match(files['/index.html'].code, /data-theme="dark"/);
+    assert.match(files['/index.html'].code, /--page:#090f1d/);
+    return renderRunner(codeFiles, { runId: 'compiler-regression', through, fullJourney, theme: 'dark', scenario: { ...scenarios[4], story: storyOptions }, parentOrigin: 'http://localhost:5173' }, transformed);
+  }
+  const unfinished = await run(starterFiles, 1);
+  assert.ok(unfinished.posted.message.checks.some(check => !check.passed));
+  assert.match(unfinished.rendered, /FAIL/);
+  for (const [through, count] of [[1, 4], [2, 12], [3, 18]]) {
+    const result = await run(exampleSolutions, through);
+    assert.equal(result.posted.message.checks.length, count);
+    assert.ok(result.posted.message.checks.every(check => check.passed));
+    assert.match(result.rendered, new RegExp(`${count}/${count} behavioral checks passed`));
+  }
+  const replay = await run(exampleSolutions, 6, true);
+  assert.match(replay.rendered, /Full journey passed/);
+  assert.equal(replay.posted.message.checks.length, 42);
+  assert.equal(replay.documentRoot.dataset.theme, 'dark');
+  replay.changeTheme('light'); assert.equal(replay.documentRoot.dataset.theme, 'light');
+  replay.changeTheme('dark'); assert.equal(replay.documentRoot.dataset.theme, 'dark');
+  const changed = await run({ ...exampleSolutions, '/gig.js': exampleSolutions['/gig.js'].replace('...details,', '...details, title: "Compiler-tested changed event",') }, 1);
+  assert.match(changed.rendered, /Compiler-tested changed event/);
+  assert.ok(changed.posted.message.checks.some(check => !check.passed));
+  assert.equal(window.localStorage.getItem(storageKey), saved);
 });

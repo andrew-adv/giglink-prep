@@ -15,7 +15,7 @@ export async function compile(files) {
   return Object.assign({}, ...Object.values(modules).map(module => ({ ...module.namespace })));
 }
 
-export async function renderRunner(files, config) {
+export async function renderRunner(files, config, preparedSources) {
   class Element {
     constructor(tag) { this.tag = tag; this.children = []; this.textContent = ''; }
     append(...children) { this.children.push(...children); }
@@ -32,6 +32,9 @@ export async function renderRunner(files, config) {
     authored[name === 'sandbox-runner' ? '/index.js' : `/${name}.js`] = await readFile(new URL(`../../src/features/lab/${name}.js`, import.meta.url), 'utf8');
   }
   authored['/theme.js'] = await readFile(new URL('../../src/features/theme/theme.js', import.meta.url), 'utf8');
+  // Optional compiler-tested sources from the actual sandboxFiles output.
+  // Existing tests retain the direct-source path for independent behavior coverage.
+  if (preparedSources) Object.assign(authored, preparedSources);
   const modules = Object.fromEntries(Object.entries(authored).map(([path, code]) => [path, new vm.SourceTextModule(code, { context, identifier: path })]));
   modules['/run-config.json'] = new vm.SyntheticModule(['default'], function () { this.setExport('default', config); }, { context });
   await modules['/index.js'].link(specifier => modules[`/${specifier.replace('./', '')}`]);

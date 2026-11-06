@@ -19,6 +19,8 @@ export function sandboxFiles(codeFiles, theme = 'dark') {
     '/story-project.js': { code: storyProject, hidden: true, readOnly: true },
     '/project.js': { code: `export const baseDetails = ${JSON.stringify(baseDetails)}; export const lessonIds = ${JSON.stringify(lessonIds)};`, hidden: true, readOnly: true },
     '/run-config.json': { code: JSON.stringify({ runId: 'not-run', through: 1, scenario: scenarios[0], theme, parentOrigin: window.location.origin }), hidden: true, readOnly: true },
-    '/package.json': { code: JSON.stringify({ name: 'mini-giglink', main: '/index.js', dependencies: {} }), hidden: true, readOnly: true },
+    // Parcel selects Babel 6 without this marker. Babel 7 parses the runner,
+    // hidden modules, and existing learner code (optional chaining/catch bindings).
+    '/package.json': { code: JSON.stringify({ name: 'mini-giglink', main: '/index.js', dependencies: {}, devDependencies: { '@babel/core': '7.21.8' } }), hidden: true, readOnly: true },
   };
 }
